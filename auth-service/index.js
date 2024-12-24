@@ -1,19 +1,25 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-const mongoose = require('mongoose');
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import authRoutes from './routes/auth.js';
+import './routes/passport.js';
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-const authRoutes = require('./routes/auth');//integrating auth.js from routers to index.js
+
 app.use('/auth', authRoutes);
 
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log("Auth Service connected to MongoDB"))
-    .catch(err => console.error("MongoDB connection error in Auth Service:", err));
+mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000, // Increase timeout (5 seconds)
+}).then(() => console.log('Auth Service Connected to MongoDB'))
+    .catch(err => console.error('Failed to connect to MongoDB', err));
+
 
 // Basic test route
 app.get('/', (req, res) => {

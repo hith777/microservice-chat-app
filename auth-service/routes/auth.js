@@ -1,8 +1,12 @@
-const express = require('express');
+import express from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+import passport from 'passport';
+import './passport.js';
+
+
 const router = express.Router();
-const User = require('../models/User');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 
 // POST /signup
 router.post('/signup', async (req, res) => {
@@ -51,4 +55,34 @@ router.post('/login', async (req, res) => {
     }
 });
 
-module.exports = router;
+// Google OAuth
+
+router.get('/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
+
+router.get('/google/callback',
+    passport.authenticate('google', { session: false, failureRedirect: '/' }),
+    (req, res) => {
+        // req.user is now the authenticated user from Passport
+        const token = jwt.sign({ userId: req.user._id, email: req.user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        res.redirect(`http://localhost:3000/social-login?token=${token}`);
+    }
+);
+
+
+
+
+router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
+
+router.get('/github/callback',
+    passport.authenticate('github', { session: false, failureRedirect: '/' }),
+    (req, res) => {
+        // Use req.user here as well
+        const token = jwt.sign({ userId: req.user._id, email: req.user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        res.redirect(`http://localhost:3000/social-login?token=${token}`);
+    }
+);
+
+
+
+
+export default router;
