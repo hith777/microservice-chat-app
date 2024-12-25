@@ -1,4 +1,4 @@
-```markdown
+
 # My Microservice Chat App
 
 ## Overview
@@ -208,13 +208,3 @@ If you ever accidentally committed `.env`:
 - Possibly streaming AI responses for a real-time “typing” effect.  
 
 ---
-
-**Thank you** for checking out our Microservice Chat App! If you have any questions or improvements, please open an issue or submit a pull request.
-```
-
-This **README.md**:
-
-- Summarizes the architecture & each service’s role.  
-- Explains how to run everything, referencing the `.env` files.  
-- Lists out the major logs/changes from day 1 onward, including removing `.env` from version control.  
-- Tells new contributors exactly how to run the system or adapt it for their own environment.  
