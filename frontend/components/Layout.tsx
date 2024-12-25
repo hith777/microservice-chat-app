@@ -1,81 +1,149 @@
-// components/Layout.tsx
-
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../styles/Layout.module.css';
 
-type Role = 'user' | 'assistant';
-
-interface Message {
-    role: Role;
+interface Session {
+  _id: string;
+  userId: string;
+  title: string;
+  createdAt?: string;
+  messages?: Array<{
+    role: string;
     content: string;
     timestamp?: string;
+  }>;
 }
 
-interface HistoryEntry {
-    prompt: string;
-    response: string;
-    timestamp?: string;
+interface LayoutContextValue {
+  addSession: (sessionId: string, title: string) => void;
 }
+
+// Provide this so children (like chat) can call addSession
+export const LayoutContext = createContext<LayoutContextValue>({
+  addSession: () => {}
+});
 
 interface LayoutProps {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
-    const [history, setHistory] = useState<Message[]>([]);
-    const router = useRouter();
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const router = useRouter();
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            (async () => {
-                const res = await fetch('http://localhost:3001/history', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json() as HistoryEntry[];
-                    // Convert HistoryEntry to a simple list of user messages for the sidebar
-                    const histMsgs: Message[] = data.map((msg) => ({
-                        role: 'user',
-                        content: msg.prompt
-                    }));
-                    setHistory(histMsgs);
-                } else {
-                    console.error('Failed to fetch history with status:', res.status);
-                }
-            })();
+  // On mount, fetch existing sessions for the user
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    (async () => {
+      try {
+        const res = await fetch('http://localhost:3001/sessions', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          console.error('Failed to fetch sessions, status:', res.status);
+          return;
         }
-    }, []);
+        const data: Session[] = await res.json();
+        setSessions(data);
+      } catch (err) {
+        console.error('Error fetching sessions:', err);
+      }
+    })();
+  }, []);
 
-    return (
-        <div className={styles.container}>
-            <aside className={styles.sidebar}>
-                <div className={styles.sidebarHeader}>
-                    <h2>MyGPT</h2>
-                </div>
-                <div className={styles.sidebarContent}>
-                    <p style={{color:'#999', fontSize:'14px', marginBottom:'10px'}}>Your chats</p>
-                    <ul style={{listStyle:'none', padding:'0'}}>
-                        {history.map((h, i) => (
-                            <li key={i} style={{marginBottom:'8px', color:'#fff', cursor:'pointer'}}>
-                                {h.content.slice(0, 30)}{h.content.length > 30 ? '...' : ''}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-                <div className={styles.sidebarFooter}>
-                    <button onClick={() => {
-                        localStorage.removeItem('token');
-                        router.push('/login');
-                    }} style={{padding:'8px', background:'#10a37f', border:'none', borderRadius:'4px', cursor:'pointer'}}>
-                        Logout
-                    </button>
-                </div>
-            </aside>
-            <main className={styles.mainContent}>
-                {children}
-            </main>
-        </div>
-    );
+  // Called by chat.tsx after /new-session, so the sidebar updates immediately
+  const addSession = (sessionId: string, title: string) => {
+    console.log('Adding session:', sessionId, title);
+    setSessions(prev => [
+      { _id: sessionId, title, userId: '', createdAt: new Date().toISOString() },
+      ...prev
+    ]);
+    console.log('Added session:', sessionId, title);
+  };
+
+  const handleNewChat = () => {
+    // Just go to /chat with no session, giving a blank conversation
+    router.push('/chat');
+  };
+
+  const handleSessionClick = (sessionId: string) => {
+    router.push(`/chat?sessionId=${sessionId}`);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    router.push('/login');
+  };
+
+  return (
+    <LayoutContext.Provider value={{ addSession }}>
+      <div className={styles.container}>
+        <aside className={styles.sidebar}>
+          <div className={styles.sidebarHeader}>
+            <h2>MyGPT</h2>
+          </div>
+
+          <div className={styles.sidebarContent}>
+            <button
+              onClick={handleNewChat}
+              style={{
+                padding: '10px',
+                marginBottom: '15px',
+                background: '#2A2B32',
+                color: '#fff',
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: '4px'
+              }}
+            >
+              + New Chat
+            </button>
+
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {sessions.map(s => (
+                <li key={s._id} style={{ marginBottom: '8px' }}>
+                  <button
+                    onClick={() => handleSessionClick(s._id)}
+                    style={{
+                      background: '#40414F',
+                      color: '#fff',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '8px 12px',
+                      borderRadius: '4px',
+                      width: '100%',
+                      textAlign: 'left'
+                    }}
+                  >
+                    {s.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className={styles.sidebarFooter}>
+            <button
+              onClick={handleLogout}
+              style={{
+                padding: '8px',
+                background: '#10a37f',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        </aside>
+
+        <main className={styles.mainContent}>
+          {children}
+        </main>
+      </div>
+    </LayoutContext.Provider>
+  );
 }
